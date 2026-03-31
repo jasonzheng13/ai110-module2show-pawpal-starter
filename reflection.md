@@ -1,71 +1,57 @@
-# PawPal+ Project Reflection
+# PawPal+ Reflection
 
-## 1. System Design
+## System Design
 
-**a. Initial design**
+### 1a. Initial Design
 
-- Briefly describe your initial UML design.
-- What classes did you include, and what responsibilities did you assign to each?
+For PawPal+, I identified four core classes that map directly to the real-world problem:
 
-**b. Design changes**
+- **Task** — Represents a single pet care activity. It holds a description, scheduled time (HH:MM), frequency (daily/weekly/once), which pet it belongs to, and a completion status. I chose a dataclass because the data-centric structure is clean and readable.
+- **Pet** — Stores a pet's name and species, and owns a list of Task objects. The Pet class is responsible for holding and returning its own tasks, which keeps concerns separated.
+- **Owner** — Acts as the top-level container. It holds multiple Pet objects and provides a single method to aggregate all tasks across pets, which the Scheduler relies on.
+- **Scheduler** — This is the "brain." It doesn't own any data but operates on the Owner's data to provide sorting, filtering, conflict detection, and schedule printing.
 
-- Did your design change during implementation?
-- If yes, describe at least one change and why you made it.
+The three core user actions I identified were: add a pet, schedule a task, and view today's schedule sorted by time.
 
----
+### 1b. Design Changes
 
-## 2. Scheduling Logic and Tradeoffs
-
-**a. Constraints and priorities**
-
-- What constraints does your scheduler consider (for example: time, priority, preferences)?
-- How did you decide which constraints mattered most?
-
-**b. Tradeoffs**
-
-- Describe one tradeoff your scheduler makes.
-- Why is that tradeoff reasonable for this scenario?
+After scaffolding the skeletons, I added `pet_name` as a field on `Task` directly rather than relying on traversal. This made filtering by pet much simpler without having to walk the object graph every time. I also moved conflict detection into the `Scheduler` instead of `Owner`, since scheduling logic belongs in the scheduler, not the data container.
 
 ---
 
-## 3. AI Collaboration
+## Algorithmic Layer
 
-**a. How you used AI**
+### 2a. Sorting & Filtering
 
-- How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
-- What kinds of prompts or questions were most helpful?
+For sorting, I used Python's built-in `sorted()` with a lambda: `key=lambda t: t.time`. Since times are in consistent `HH:MM` string format, lexicographic sorting correctly produces chronological order. This was suggested by Copilot when I asked about sorting string times, and it was cleaner than converting to `datetime` objects for this use case.
 
-**b. Judgment and verification**
+For filtering, I implemented a method that accepts optional keyword arguments (`completed`, `pet_name`) and chains conditions. This approach is flexible — you can filter by one or both simultaneously.
 
-- Describe one moment where you did not accept an AI suggestion as-is.
-- How did you evaluate or verify what the AI suggested?
+### 2b. Tradeoffs
 
----
+One key tradeoff in conflict detection: I check for exact time string matches (e.g., both at `"08:00"`), not overlapping time *windows*. This means a 30-minute task starting at 8:00 and one starting at 8:15 won't be flagged. For a real app, you'd want duration-aware conflict checking, but for this scope, exact-match is simple and reliable.
 
-## 4. Testing and Verification
-
-**a. What you tested**
-
-- What behaviors did you test?
-- Why were these tests important?
-
-**b. Confidence**
-
-- How confident are you that your scheduler works correctly?
-- What edge cases would you test next if you had more time?
+Another tradeoff: recurring tasks reset immediately on `mark_complete()` rather than waiting until the new due date arrives. This keeps the logic simple but means a "daily" task shows as pending again instantly rather than the next day.
 
 ---
 
-## 5. Reflection
+## AI Strategy
 
-**a. What went well**
+### Copilot Features Used
 
-- What part of this project are you most satisfied with?
+- **Agent Mode** — Used to flesh out all four class implementations in `pawpal_system.py` from my UML skeleton. This was the most effective feature because it could see the full file context and generate cohesive code.
+- **Inline Chat** — Used on specific methods like `sort_by_time()` to ask targeted questions like "how do I sort these task objects by their HH:MM string time?" This kept the changes scoped to one method without regenerating the whole file.
+- **Generate Tests** — Used to draft the initial pytest functions in `test_pawpal.py`. I then reviewed each test to make sure it was actually testing meaningful behavior, not just that the function runs.
+- **Generate Documentation** — Used to add docstrings to methods in `pawpal_system.py` after implementation.
 
-**b. What you would improve**
+### AI Suggestion I Modified
 
-- If you had another iteration, what would you improve or redesign?
+Copilot initially suggested converting `HH:MM` strings to `datetime.time` objects for sorting. I kept the lambda-on-string approach instead because my time values are always zero-padded and consistent — the extra conversion would add complexity without benefit for this scope.
 
-**c. Key takeaway**
+### Separate Chat Sessions
 
-- What is one important thing you learned about designing systems or working with AI on this project?
+Using separate Copilot chat sessions for different phases (design vs. implementation vs. testing) helped a lot. Each session stayed focused — the testing session didn't get confused by design-phase context, and Copilot's suggestions stayed relevant to the current task.
+
+### Being the Lead Architect
+
+The most important lesson was that AI is a powerful *implementer* but a poor *decision-maker*. Copilot could generate sorting code instantly, but it didn't know whether to sort in the Scheduler or the Owner — that was an architectural decision I had to make. Being the lead architect meant setting the structure, asking precise questions, and evaluating AI output critically rather than accepting it wholesale.
